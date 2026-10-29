@@ -1,0 +1,10 @@
+# No solution: row 1 needs a 9 in its last cell, but column 9 already has one
+1 2 3 4 5 6 7 8 _
+_ _ _ _ _ _ _ _ 9
+_ _ _ _ _ _ _ _ _
+_ _ _ _ _ _ _ _ _
+_ _ _ _ _ _ _ _ _
+_ _ _ _ _ _ _ _ _
+_ _ _ _ _ _ _ _ _
+_ _ _ _ _ _ _ _ _
+_ _ _ _ _ _ _ _ _
