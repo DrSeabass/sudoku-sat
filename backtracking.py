@@ -12,28 +12,48 @@ import sys
 
 from board import CELLS, NUMBERS, UNITS, Board
 
-# For each cell, the rows, columns and blocks it belongs to.
-UNITS_OF = {cell: [unit for unit in UNITS if cell in unit] for cell in CELLS}
+# For each cell, the row, column and block it belongs to.
+UNITS_OF = {}
+for cell in CELLS:
+    UNITS_OF[cell] = []
+    for unit in UNITS:
+        if cell in unit:
+            UNITS_OF[cell].append(unit)
 
 
 def legal_numbers(board, cell):
     """The numbers that can go in cell without repeating one in its row, column or block."""
-    used = {board[other] for unit in UNITS_OF[cell] for other in unit}
-    return [k for k in NUMBERS if k not in used]
+    used = set()
+    for unit in UNITS_OF[cell]:
+        for other in unit:
+            used.add(board[other])
+    legal = []
+    for k in NUMBERS:
+        if k not in used:
+            legal.append(k)
+    return legal
 
 
 def solve(board, stats):
     """Fill the empty cells of board in place. Return True if a solution was found."""
-    empty = [cell for cell in CELLS if board[cell] is None]
-    if not empty:
-        return True
-    cell = min(empty, key=lambda c: len(legal_numbers(board, c)))
-    for k in legal_numbers(board, cell):
+    # Find the empty cell with the fewest legal numbers.
+    best_cell = None
+    best_numbers = None
+    for cell in CELLS:
+        if board[cell] is None:
+            numbers = legal_numbers(board, cell)
+            if best_cell is None or len(numbers) < len(best_numbers):
+                best_cell = cell
+                best_numbers = numbers
+    if best_cell is None:
+        return True   # no empty cells left: solved
+
+    for k in best_numbers:
         stats["guesses"] += 1
-        board[cell] = k
+        board[best_cell] = k
         if solve(board, stats):
             return True
-        board[cell] = None
+        board[best_cell] = None
     return False
 
 

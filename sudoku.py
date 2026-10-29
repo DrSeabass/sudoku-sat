@@ -50,8 +50,14 @@ def unvar(n):
 
 def phi_1():
     """At least one number per cell:  AND_{i,j}  OR_k  v_{i,j,k}"""
-    return [[var(i, j, k) for k in NUMBERS]
-            for i in NUMBERS for j in NUMBERS]
+    clauses = []
+    for i in NUMBERS:
+        for j in NUMBERS:
+            clause = []
+            for k in NUMBERS:
+                clause.append(var(i, j, k))
+            clauses.append(clause)
+    return clauses
 
 
 def phi_2():
@@ -60,33 +66,61 @@ def phi_2():
     As a clause, not (a and b) is (not a or not b). Each pair k, l is needed
     only once: the clause for (l, k) would be the same clause again.
     """
-    return [[-var(i, j, k), -var(i, j, l)]
-            for i in NUMBERS for j in NUMBERS
-            for k in NUMBERS for l in NUMBERS if k < l]
+    clauses = []
+    for i in NUMBERS:
+        for j in NUMBERS:
+            for k in NUMBERS:
+                for l in NUMBERS:
+                    if k < l:
+                        clause = [-var(i, j, k), -var(i, j, l)]
+                        clauses.append(clause)
+    return clauses
 
 
 def phi_3():
     """Each number occurs in every row:  AND_{i,k}  OR_j  v_{i,j,k}"""
-    return [[var(i, j, k) for j in NUMBERS]
-            for i in NUMBERS for k in NUMBERS]
+    clauses = []
+    for i in NUMBERS:
+        for k in NUMBERS:
+            clause = []
+            for j in NUMBERS:
+                clause.append(var(i, j, k))
+            clauses.append(clause)
+    return clauses
 
 
 def phi_4():
     """Each number occurs in every column:  AND_{j,k}  OR_i  v_{i,j,k}"""
-    return [[var(i, j, k) for i in NUMBERS]
-            for j in NUMBERS for k in NUMBERS]
+    clauses = []
+    for j in NUMBERS:
+        for k in NUMBERS:
+            clause = []
+            for i in NUMBERS:
+                clause.append(var(i, j, k))
+            clauses.append(clause)
+    return clauses
 
 
 def phi_5():
     """Each number occurs in every block:  AND_{bi,bj,k}  OR_{di,dj}  v_{3bi+di, 3bj+dj, k}"""
-    offsets = range(1, BLOCK + 1)
-    return [[var(BLOCK * bi + di, BLOCK * bj + dj, k) for di in offsets for dj in offsets]
-            for bi in range(BLOCK) for bj in range(BLOCK) for k in NUMBERS]
+    clauses = []
+    for bi in range(BLOCK):
+        for bj in range(BLOCK):
+            for k in NUMBERS:
+                clause = []
+                for di in range(1, BLOCK + 1):
+                    for dj in range(1, BLOCK + 1):
+                        clause.append(var(BLOCK * bi + di, BLOCK * bj + dj, k))
+                clauses.append(clause)
+    return clauses
 
 
 def phi_s(puzzle):
     """The clues of the puzzle:  AND_{puzzle places k on (i,j)}  v_{i,j,k}"""
-    return [[var(i, j, k)] for i, j, k in puzzle.clues()]
+    clauses = []
+    for i, j, k in puzzle.clues():
+        clauses.append([var(i, j, k)])
+    return clauses
 
 
 def encode(puzzle):
@@ -101,16 +135,26 @@ def encode(puzzle):
     ]
 
 
+def count_clauses(parts):
+    """The total number of clauses in all parts of the formula."""
+    total = 0
+    for name, clauses in parts:
+        total += len(clauses)
+    return total
+
+
 def write_dimacs(parts, path):
     """Write the formula in DIMACS CNF format, with a comment line before each part."""
-    num_clauses = sum(len(clauses) for _, clauses in parts)
+    num_clauses = count_clauses(parts)
     with open(path, "w", encoding="utf-8") as f:
         f.write("c Sudoku as SAT: v_{i,j,k} is variable 81(i-1) + 9(j-1) + k\n")
         f.write(f"p cnf {N ** 3} {num_clauses}\n")
         for name, clauses in parts:
             f.write(f"c {name} ({len(clauses)} clauses)\n")
             for clause in clauses:
-                f.write(" ".join(str(literal) for literal in clause) + " 0\n")
+                for literal in clause:
+                    f.write(f"{literal} ")
+                f.write("0\n")
 
 
 # ---------------------------------------------------------------------------
@@ -142,11 +186,12 @@ def decode(sol_path):
             return None
         if status != "SAT":
             raise ValueError(f"{sol_path}: expected SAT or UNSAT, found {status!r}")
-        literals = [int(literal) for literal in f.read().split()]
+        model = f.read().split()
 
     # phi_1 and phi_2 guarantee exactly one true v_{i,j,k} for every cell.
     solution = Board()
-    for literal in literals:
+    for word in model:
+        literal = int(word)
         if literal > 0:
             i, j, k = unvar(literal)
             solution[i, j] = k
@@ -163,7 +208,7 @@ def cmd_encode(puzzle_path, cnf_path):
     parts = encode(puzzle)
     write_dimacs(parts, cnf_path)
     print(f"Wrote {cnf_path}: {N ** 3} variables, "
-          f"{sum(len(clauses) for _, clauses in parts)} clauses")
+          f"{count_clauses(parts)} clauses")
     for name, clauses in parts:
         print(f"  {name}: {len(clauses)}")
     return puzzle
